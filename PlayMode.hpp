@@ -1,48 +1,52 @@
 #include "Mode.hpp"
 
+#include "AssetMesh.hpp"
+#include "BBox.hpp"
 #include "Scene.hpp"
 #include "Sound.hpp"
 
 #include <glm/glm.hpp>
 
-#include <vector>
 #include <deque>
+#include <vector>
 
 struct PlayMode : Mode {
-	PlayMode();
-	virtual ~PlayMode();
+    PlayMode();
+    virtual ~PlayMode();
 
-	//functions called by main loop:
-	virtual bool handle_event(SDL_Event const &, glm::uvec2 const &window_size) override;
-	virtual void update(float elapsed) override;
-	virtual void draw(glm::uvec2 const &drawable_size) override;
+    // functions called by main loop:
+    virtual bool handle_event(SDL_Event const&, glm::uvec2 const& window_size) override;
+    virtual void update(float elapsed) override;
+    virtual void draw(glm::uvec2 const& drawable_size) override;
 
-	//----- game state -----
+    //----- game state -----
 
-	//input tracking:
-	struct Button {
-		uint8_t downs = 0;
-		uint8_t pressed = 0;
-	} left, right, down, up;
+    // input tracking:
+    struct Button {
+        uint8_t downs = 0;
+        uint8_t pressed = 0;
+    } left, right, down, up, jump;
 
-	//local copy of the game scene (so code can change it during gameplay):
-	Scene scene;
+    bool justJumped = false;
 
-	//hexapod leg to wobble:
-	Scene::Transform *hip = nullptr;
-	Scene::Transform *upper_leg = nullptr;
-	Scene::Transform *lower_leg = nullptr;
-	glm::quat hip_base_rotation;
-	glm::quat upper_leg_base_rotation;
-	glm::quat lower_leg_base_rotation;
-	float wobble = 0.0f;
+    // music coming from the tip of the leg (as a demonstration):
+    std::shared_ptr<Sound::PlayingSample> leg_tip_loop;
 
-	glm::vec3 get_leg_tip_position();
+    // local copy of the game scene (so code can change it during gameplay):
+    Scene scene;
+    bool game_over = false;
+    bool win = true;
 
-	//music coming from the tip of the leg (as a demonstration):
-	std::shared_ptr< Sound::PlayingSample > leg_tip_loop;
-	
-	//camera:
-	Scene::Camera *camera = nullptr;
+    // all the vehicles in the scene
+    std::vector<FourWheeledVehicle*> vehicle_map;
+    FourWheeledVehicle* Player = nullptr;
 
+    // camera:
+    glm::vec2 move = glm::vec2(0, 0);
+    float camera_arm_length = 25.f; // "distance" from camera to player
+    glm::vec3 camera_offset = glm::vec3(0, -1, 1);
+    float mouse_drag_speed_x = -10;
+    float mouse_drag_speed_y = -10;
+    float mouse_scroll_speed = 5;
+    Scene::Camera* camera = nullptr;
 };

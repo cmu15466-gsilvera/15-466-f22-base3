@@ -20,6 +20,7 @@ static Load< void > setup_buffers(LoadTagDefault, [](){
 		//for now, buffer will be un-filled.
 	}
 
+
 	{ //vertex array mapping buffer for color_program:
 		//ask OpenGL to fill vertex_buffer_for_color_program with the name of an unused vertex array object:
 		glGenVertexArrays(1, &vertex_buffer_for_color_program);
@@ -63,7 +64,20 @@ static Load< void > setup_buffers(LoadTagDefault, [](){
 });
 
 
-DrawLines::DrawLines(glm::mat4 const &world_to_clip_) : world_to_clip(world_to_clip_) {
+DrawLines::DrawLines(glm::mat4 const &world_to_clip_, bool with_bg_) : world_to_clip(world_to_clip_) {
+	with_bg = with_bg_;
+	if (with_bg) {
+		glm::vec2 boundsX(-2, 2);
+		glm::vec2 boundsY(-0.5, 0.5);
+		attribs = {
+			Vertex(glm::vec3(boundsX.x, boundsY.x, 0), glm::u8vec4(0x11)),
+			Vertex(glm::vec3(boundsX.y, boundsY.x, 0), glm::u8vec4(0x11)),
+			Vertex(glm::vec3(boundsX.y, boundsY.y, 0), glm::u8vec4(0x11)),
+			Vertex(glm::vec3(boundsX.x, boundsY.x, 0), glm::u8vec4(0x11)),
+			Vertex(glm::vec3(boundsX.x, boundsY.y, 0), glm::u8vec4(0x11)),
+			Vertex(glm::vec3(boundsX.y, boundsY.y, 0), glm::u8vec4(0x11)),
+		};
+	}
 }
 
 void DrawLines::draw(glm::vec3 const &a, glm::vec3 const &b, glm::u8vec4 const &color) {
@@ -150,6 +164,11 @@ DrawLines::~DrawLines() {
 
 	//use the mapping vertex_buffer_for_color_program to fetch vertex data:
 	glBindVertexArray(vertex_buffer_for_color_program);
+
+	if (with_bg){
+		//run the OpenGL pipeline (triangles):
+		glDrawArrays(GL_TRIANGLES, 0, GLsizei(6));
+	}
 
 	//run the OpenGL pipeline:
 	glDrawArrays(GL_LINES, 0, GLsizei(attribs.size()));
