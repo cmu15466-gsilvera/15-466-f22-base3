@@ -167,15 +167,14 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
 void PlayMode::update(float elapsed)
 {
 
-    if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
-        // last one standing
-        game_over = true;
-        win = true;
-    }
+    // if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
+    //     // last one standing
+    //     game_over = true;
+    //     win = true;
+    // }
 
     // move sound to follow leg tip position:
     leg_tip_loop->set_position(Player->pos, 1.0f / 60.0f);
-
 
     // update all the vehicles
     for (FourWheeledVehicle* FWV : vehicle_map) {
@@ -292,7 +291,6 @@ void PlayMode::update(float elapsed)
         /// TODO: fix the spinning when go directly over and up is parallel to dir
         camera->transform->rotation = glm::quatLookAt(dir, glm::vec3(0, 0, 1));
     }
-
 
     { // update listener to camera position:
         glm::mat4x3 frame = camera->transform->make_local_to_parent();

@@ -12,11 +12,17 @@
 #include <vector>
 
 struct AssetMesh {
-    AssetMesh() = default;
+    AssetMesh(const std::string& nameIn)
+    {
+        name = nameIn;
+    }
 
     std::unordered_map<std::string, Scene::Transform**> components;
 
     BBox bounds;
+
+    // metadata
+    std::string name = "";
 
     bool enabled = true;
 
@@ -27,12 +33,14 @@ struct AssetMesh {
 };
 
 struct PhysicalAssetMesh : AssetMesh {
+
     glm::vec3 pos, vel, accel;
     glm::vec3 rot, rotvel, rotaccel;
 
     glm::vec3 collision_force;
 
-    PhysicalAssetMesh()
+    PhysicalAssetMesh(const std::string& nameIn)
+        : AssetMesh(nameIn)
     {
         pos = glm::vec3(0, 0, 0);
         vel = glm::vec3(0, 0, 0);
@@ -70,13 +78,26 @@ struct PhysicalAssetMesh : AssetMesh {
     }
 };
 
+struct Missile : PhysicalAssetMesh {
+
+    Scene::Transform* all;
+
+    void initialize_from_scene(Scene& scene)
+    {
+        assert(scene.transforms.size() > 0);
+
+        std::string suffix = find_suffix_in_scene(name, "rocket", scene);
+
+        pos = all->position;
+        rot = glm::eulerAngles(all->rotation);
+    }
+};
+
 struct FourWheeledVehicle : PhysicalAssetMesh {
 
     FourWheeledVehicle(const std::string& nameIn)
-        : PhysicalAssetMesh()
+        : PhysicalAssetMesh(nameIn)
     {
-        name = nameIn;
-        wheel_bounds = glm::vec2(-M_PI / 4.f, M_PI / 4.f); // [LB, UB]
     }
 
     bool bIsPlayer = false;
@@ -99,41 +120,27 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
         // add components to the global dictionary
         initialize_components();
 
-        // get pointers to scene components for convenience:
-        std::string suffix = "";
-
         // find the first (and should be only) instance of $name in scene
-        bool found_name = false;
-        for (auto& transform : scene.transforms) {
-            if (!found_name) {
-                if (transform.name == name) {
-                    (*components[name]) = &transform;
-                    found_name = true;
-                }
-            } else {
-                if (transform.name.find("body") != std::string::npos) {
-                    auto const pos = transform.name.find_last_of('.');
-                    suffix = "." + transform.name.substr(pos + 1);
-                    if (suffix == ".body") {
-                        suffix = ""; // "." not found
-                    }
-                    break;
-                }
-            }
-        }
+        std::string suffix = find_suffix_in_scene(name, "body", scene);
 
+        // get pointers to scene components for convenience:
+        /// TODO: should we flip the order of these loops?
         for (auto& s : components) {
             const std::string key = s.first;
-            const std::string search = key + suffix;
+            // only add suffix if not searching for the name of the object itself
+            const std::string search = key + ((key == name) ? "" : suffix);
             for (auto& transform : scene.transforms) {
                 if (transform.name == search) { // contains key
+                    // std::cout << "found match for " << search << " to be " << transform.name << std::endl;
                     (*s.second) = &transform;
-                    // std::cout << "found " << transform.name << " to fit " << search << std::endl;
                     break;
                 }
             }
             /// TODO: break early once all the components are found
-            if (s.second == nullptr || (*s.second) == nullptr) {
+            if (s.second == nullptr) {
+                throw std::runtime_error("this should not be null in \"" + name + "\"");
+            }
+            if ((*s.second) == nullptr) {
                 throw std::runtime_error("Unable to find " + name + "'s \"" + s.first + "\" in scene");
             }
         }
@@ -144,6 +151,12 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
         }
 
         bounds = BBox(mesh->min, mesh->max);
+
+        // debug to make sure all the wheels are working
+        // wheel_FL->position += glm::vec3(1, 0, 0);
+        // wheel_BL->position += glm::vec3(1, 0, 0);
+        // wheel_FR->position += glm::vec3(-1, 0, 0);
+        // wheel_BR->position += glm::vec3(-1, 0, 0);
 
         pos = all->position;
         rot = glm::eulerAngles(all->rotation);
@@ -248,16 +261,13 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
     float throttle_force = 10.f;
     float brake_force = 5.f; // brake or reverse?
     float steer_force = 1.f;
-    glm::vec2 wheel_bounds; // [LB, UB]
+    glm::vec2 wheel_bounds = glm::vec2(-M_PI / 4.f, M_PI / 4.f); // [LB, UB]
 
     // constants
     float wheel_diameter_m = 1.0f;
     float c_r = 0.02f; // coefficient of resistance
     float c_a = 0.25f; // drag coefficient
     float woggle = 0;
-
-    // metadata
-    std::string name = "";
 
     float health = 2; // maximum number of bumps
 
