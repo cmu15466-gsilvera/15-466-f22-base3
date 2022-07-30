@@ -43,8 +43,8 @@ Load<Scene> load_scene(LoadTagDefault, []() -> Scene const* {
     });
 });
 
-Load<Sound::Sample> dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample const* {
-    return new Sound::Sample(data_path("dusty-floor.opus"));
+Load<Sound::Sample> honk_sample(LoadTagDefault, []() -> Sound::Sample const* {
+    return new Sound::Sample(data_path("honk.opus"));
 });
 
 PlayMode::PlayMode()
@@ -73,8 +73,8 @@ PlayMode::PlayMode()
         "van"
     };
 
-    // auto rng = std::default_random_engine {};
-    // std::shuffle(std::begin(vehicle_names), std::end(vehicle_names), rng);
+    auto rng = std::default_random_engine {};
+    std::shuffle(std::begin(vehicle_names), std::end(vehicle_names), rng);
 
     for (const std::string& name : vehicle_names) {
         FourWheeledVehicle* FWV = new FourWheeledVehicle(name);
@@ -83,10 +83,8 @@ PlayMode::PlayMode()
         // the first vehicle will be the player
     }
 
-    Player = vehicle_map[0];
-    std::cout << "Determined player to be \"" << Player->name << "\"" << std::endl;
-    Player->bIsPlayer = true;
-    Player->health = 10;
+    target = vehicle_map[0];
+    std::cout << "Determined target to be \"" << target->name << "\"" << std::endl;
 
     // get pointer to camera for convenience:
     if (scene.cameras.size() != 1)
@@ -95,7 +93,9 @@ PlayMode::PlayMode()
 
     // start music loop playing:
     //  (note: position will be over-ridden in update())
-    leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, Player->pos, 10.0f);
+    const float volume = 0.5f;
+    const float radius = 1.f;
+    honk_loop = Sound::loop_3D(*honk_sample, volume, target->pos, radius);
 }
 
 PlayMode::~PlayMode()
@@ -148,10 +148,8 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             return true;
         }
     } else if (evt.type == SDL_MOUSEBUTTONDOWN) {
-        if (SDL_GetRelativeMouseMode() == SDL_FALSE) {
-            SDL_SetRelativeMouseMode(SDL_TRUE);
-            return true;
-        }
+        check_if_clicked(glm::vec2(evt.motion.x, evt.motion.y));
+        return true;
     } else if (evt.type == SDL_MOUSEMOTION) {
         if (SDL_GetRelativeMouseMode() == SDL_TRUE) {
             move = glm::vec2(
@@ -164,28 +162,33 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
     return false;
 }
 
+void PlayMode::check_if_clicked(const glm::vec2& mouse)
+{
+    std::cout << "(" << mouse.x << " x " << mouse.y << ")" << std::endl;
+}
+
 void PlayMode::update(float elapsed)
 {
 
-    // if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
-    //     // last one standing
-    //     game_over = true;
-    //     win = true;
-    // }
+    if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
+        // last one standing
+        game_over = true;
+        win = true;
+    }
 
     // move sound to follow leg tip position:
-    leg_tip_loop->set_position(Player->pos, 1.0f / 60.0f);
+    honk_loop->set_position(target->pos, 1.0f / 60.0f);
 
     // update all the vehicles
     for (FourWheeledVehicle* FWV : vehicle_map) {
         if (!FWV->bIsPlayer) {
-            FWV->target = Player;
+            FWV->target = target;
             FWV->think(elapsed, vehicle_map); // determine target & controls
         }
         FWV->update(elapsed);
         // check collisions
         FWV->bounds.collided = false;
-        glm::vec3 heading = FWV->get_heading();
+        // glm::vec3 heading = FWV->get_heading();
         for (FourWheeledVehicle* otherFWV : vehicle_map) {
             bool was_collision = (FWV->bounds.collides_with(otherFWV->bounds) || otherFWV->bounds.collides_with(FWV->bounds));
             if (otherFWV != FWV && was_collision) {
@@ -194,11 +197,11 @@ void PlayMode::update(float elapsed)
                 glm::vec3 dir = FWV->pos - otherFWV->pos;
                 FWV->collision_force = 0.5f * dir / elapsed;
                 // check if got bumped
-                if (glm::dot(dir, heading) > 0) {
-                    FWV->health--;
-                    if (FWV->health == 0)
-                        FWV->die();
-                }
+                // if (glm::dot(dir, heading) > 0) {
+                //     FWV->health--;
+                //     if (FWV->health == 0)
+                //         FWV->die();
+                // }
                 break;
             }
         }
@@ -226,70 +229,21 @@ void PlayMode::update(float elapsed)
     }
 
     {
-        // combine inputs into a move:
-        if (left.pressed || right.pressed) {
-            const float wheel_turn_rate = Player->pos.z > 0 ? 2.f : 0.5f; // how many radians per second are turned
-            float delta = elapsed * wheel_turn_rate;
-            if (left.pressed && !right.pressed)
-                Player->turn_wheel(delta);
-            if (!left.pressed && right.pressed)
-                Player->turn_wheel(-delta);
-        } else {
-            // force feedback return steering wheel to 0
-            Player->steer += elapsed * 2.f * (0 - Player->steer);
-        }
-        if (jump.pressed) {
-            if (!justJumped && Player->pos.z == 0) {
-                // give some initial velocity
-                Player->vel += glm::vec3(0, 0, 10);
-                justJumped = true;
-            }
-        } else {
-            justJumped = false;
-        }
-
         // std::cout << Player->steer << std::endl;
 
-        if (up.pressed || down.pressed) {
-            if (down.pressed && !up.pressed) {
-                Player->throttle = 0;
-                Player->brake = 1;
-            }
-            if (!down.pressed && up.pressed) {
-                Player->throttle = 1;
-                Player->brake = 0;
-            }
+        if (up.pressed) {
+            camera_offset = glm::vec3(0, 1, 0);
+        } else if (down.pressed) {
+            camera_offset = glm::vec3(0, -1, 0);
+        } else if (right.pressed) {
+            camera_offset = glm::vec3(1, 0, 0);
+        } else if (left.pressed) {
+            camera_offset = glm::vec3(-1, 0, 0);
         } else {
-            Player->throttle = 0;
-            Player->brake = 0;
+            camera_offset = glm::vec3(0, 0, 0);
         }
         /// TODO: rotate camera?
-        camera->transform->position = Player->pos + camera_offset;
-    }
-
-    // move camera:
-    {
-        // camera->transform->position += glm::vec3(motion.x, motion.y, 0);
-
-        glm::mat4x3 frame = camera->transform->make_local_to_parent();
-        glm::vec3 right = frame[0];
-        glm::vec3 up = frame[1];
-        // glm::vec3 forward = -frame[2];
-
-        camera_offset += mouse_drag_speed_x * move.x * right + mouse_drag_speed_y * move.y * up; // + mouse_scroll_speed * move.z * forward;
-
-        // reset the delta's so the camera stops when mouse up
-        move = glm::vec2(0, 0);
-
-        // camera_offset.y = std::min(-1.f, std::max(camera_offset.y, -camera_arm_length)); // forward (negative bc looking behind vehicle)
-        camera_offset.z = std::min(camera_arm_length, std::max(camera_offset.z, 1.f)); // vertical
-        // normalize camera so its always camera_arm_length away
-        camera_offset /= glm::length(camera_offset);
-        camera_offset *= camera_arm_length;
-
-        glm::vec3 dir = glm::normalize(Player->all->position - camera->transform->position);
-        /// TODO: fix the spinning when go directly over and up is parallel to dir
-        camera->transform->rotation = glm::quatLookAt(dir, glm::vec3(0, 0, 1));
+        camera->transform->position += 0.1f * camera_offset;
     }
 
     { // update listener to camera position:
@@ -356,12 +310,12 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
         } else {
             DrawLines lines(projection, false);
             constexpr float H = 0.09f;
-            lines.draw_text("Health: " + std::to_string(Player->health),
+            lines.draw_text("# vehicles left: " + std::to_string(vehicle_map.size()),
                 glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
                 glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
                 glm::u8vec4(0x00, 0x00, 0x00, 0xF0));
             float ofs = 2.0f / drawable_size.y;
-            lines.draw_text("Health: " + std::to_string(Player->health),
+            lines.draw_text("# vehicles left: " + std::to_string(vehicle_map.size()),
                 glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
                 glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
                 glm::u8vec4(0xff, 0xff, 0xff, 0x00));

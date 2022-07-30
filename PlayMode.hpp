@@ -27,10 +27,10 @@ struct PlayMode : Mode {
         uint8_t pressed = 0;
     } left, right, down, up, jump;
 
-    bool justJumped = false;
+    void check_if_clicked(const glm::vec2& mouse);
 
     // music coming from the tip of the leg (as a demonstration):
-    std::shared_ptr<Sound::PlayingSample> leg_tip_loop;
+    std::shared_ptr<Sound::PlayingSample> honk_loop;
 
     // local copy of the game scene (so code can change it during gameplay):
     Scene scene;
@@ -39,12 +39,12 @@ struct PlayMode : Mode {
 
     // all the vehicles in the scene
     std::vector<FourWheeledVehicle*> vehicle_map;
-    FourWheeledVehicle* Player = nullptr;
+    FourWheeledVehicle* target = nullptr;
 
     // camera:
     glm::vec2 move = glm::vec2(0, 0);
     float camera_arm_length = 25.f; // "distance" from camera to player
-    glm::vec3 camera_offset = glm::vec3(0, -1, 1);
+    glm::vec3 camera_offset = glm::vec3(0, 0, 0);
     float mouse_drag_speed_x = -10;
     float mouse_drag_speed_y = -10;
     float mouse_scroll_speed = 5;
