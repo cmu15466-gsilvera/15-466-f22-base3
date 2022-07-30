@@ -27,9 +27,15 @@ public:
         // extend the ray: origin + t * ray = pt such that pt.z == 0
         // ==> origin.z + t * ray.z == 0 ==> t = -origin.z / ray.z;
         float t = -origin.z / ray.z;
-        glm::vec3 pt = (origin + t * ray);
+        glm::vec3 pt_ground = (origin + t * ray);
 
-        return contains_pt(pt);
+        /// ALSO: can check with the top plane/face of the bbox
+        // extend the day origin + t * ray = pt such that pt.z == midpt.z + extent.z / 2.f
+        const float eps = 1e-5;
+        float t2 = ((midpt.z + extent.z / 2.f - eps) - origin.z) / ray.z;
+        glm::vec3 pt_roof = (origin + t2 * ray);
+
+        return contains_pt(pt_ground) || contains_pt(pt_roof);
     }
 
     bool contains_pt(const glm::vec3& pt) const
