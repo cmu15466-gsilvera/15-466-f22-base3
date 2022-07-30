@@ -175,9 +175,9 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
             return;
         }
 
-        // while ((target == nullptr || target == this || !target->enabled)) {
-        //     target = others[std::rand() % others.size()];
-        // }
+        while ((target == nullptr || target == this || !target->enabled)) {
+            target = others[std::rand() % others.size()];
+        }
 
         // get direction to target
         glm::vec2 dir2D = glm::vec2(target->pos - this->pos);

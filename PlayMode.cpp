@@ -78,18 +78,12 @@ PlayMode::PlayMode()
     std::shuffle(std::begin(vehicle_names), std::end(vehicle_names), rng);
 
     // make is so the target is always the previous guy
-    FourWheeledVehicle* lastFWV = nullptr;
     for (const std::string& name : vehicle_names) {
         FourWheeledVehicle* FWV = new FourWheeledVehicle(name);
         FWV->initialize_from_scene(scene);
-        if (lastFWV != nullptr) {
-            FWV->target = lastFWV;
-        }
         vehicle_map.push_back(FWV);
-        lastFWV = FWV;
-        // the first vehicle will be the player
+        // the first vehicle will be the target
     }
-    vehicle_map[0]->target = lastFWV;
 
     target = vehicle_map[0];
     std::cout << "Determined target to be \"" << target->name << "\"" << std::endl;
@@ -194,17 +188,27 @@ void PlayMode::check_if_clicked(const glm::vec2& mouse_rel)
 
     for (FourWheeledVehicle* FWV : vehicle_map) {
         FWV->bounds.collided = FWV->bounds.intersects(camera->transform->position, ray);
+        if (FWV->bounds.collided) {
+            FWV->die();
+            if (FWV == target) {
+                game_over = true;
+                win = true;
+            } else {
+                game_over = true;
+                win = false;
+            }
+        }
     }
 }
 
 void PlayMode::update(float elapsed)
 {
 
-    if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
-        // last one standing
-        game_over = true;
-        win = true;
-    }
+    // if (vehicle_map.size() == 1 && vehicle_map[0]->bIsPlayer) {
+    //     // last one standing
+    //     game_over = true;
+    //     win = true;
+    // }
 
     // move sound to follow leg tip position:
     honk_loop->set_position(target->pos, 1.0f / 60.0f);
@@ -221,7 +225,7 @@ void PlayMode::update(float elapsed)
         for (FourWheeledVehicle* otherFWV : vehicle_map) {
             bool was_collision = (FWV->bounds.collides_with(otherFWV->bounds) || otherFWV->bounds.collides_with(FWV->bounds));
             if (otherFWV != FWV && was_collision) {
-                FWV->bounds.collided = true;
+                // FWV->bounds.collided = true;
 
                 glm::vec3 dir = FWV->pos - otherFWV->pos;
                 FWV->collision_force = 0.5f * dir / elapsed;
@@ -243,11 +247,6 @@ void PlayMode::update(float elapsed)
             if (FWV->enabled) {
                 alive_vehicles.push_back(FWV);
             } else {
-                if (FWV->bIsPlayer) {
-                    game_over = true;
-                    win = false;
-                    return;
-                }
                 /// TODO: figure out a better/proper way to destroy
                 // move it to under the screen so it is invis
                 FWV->all->position = glm::vec3(0, 0, -100);
