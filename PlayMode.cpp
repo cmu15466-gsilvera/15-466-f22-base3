@@ -92,12 +92,6 @@ PlayMode::PlayMode()
     if (scene.cameras.size() != 1)
         throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
     camera = &scene.cameras.front();
-
-    // start music loop playing:
-    //  (note: position will be over-ridden in update())
-    const float volume = 1.f;
-    const float radius = 1.f;
-    honk_loop = Sound::loop_3D(*honk_sample, volume, target->pos, radius);
 }
 
 PlayMode::~PlayMode()
@@ -210,8 +204,16 @@ void PlayMode::update(float elapsed)
     //     win = true;
     // }
 
-    // move sound to follow leg tip position:
-    honk_loop->set_position(target->pos, 1.0f / 60.0f);
+    time += elapsed;
+    // move sound to play at the target every ~3s
+    if (time > next_sound_play) {
+        honk_sound.reset();
+        const float volume = 1.f;
+        const float radius = 0.1f;
+        honk_sound = Sound::play_3D(*honk_sample, volume, target->pos, radius);
+        honk_sound->set_position(target->pos, 1.0f / 60.0f);
+        next_sound_play += 3;
+    }
 
     // update all the vehicles
     for (FourWheeledVehicle* FWV : vehicle_map) {
@@ -324,9 +326,9 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
 
         if (game_over) {
             DrawLines lines(projection, true);
-            float win_message_width = win ? 0.5f : 0.9f;
+            float win_message_width = win ? 0.5f : 0.7f;
             float win_message_height = 0.3f;
-            auto win_message = win ? "VICTORY ACHIEVED!" : "YOU DIED";
+            auto win_message = win ? "VICTORY ACHIEVED!" : "GAME OVER";
             glm::u8vec4 win_colour = win ? glm::u8vec4(0xff, 0xff, 0, 0xff) : glm::u8vec4(0xff, 0, 0, 0xff);
             float pos_x = win ? -1.5f : -1.3f;
             lines.draw_text(win_message,
