@@ -21,6 +21,17 @@ public:
         extent = max0 - min0;
     }
 
+    bool intersects(const glm::vec3& origin, const glm::vec3& ray)
+    {
+        /// HACK: only check with the bottom plane/face of the bbox
+        // extend the ray: origin + t * ray = pt such that pt.z == 0
+        // ==> origin.z + t * ray.z == 0 ==> t = -origin.z / ray.z;
+        float t = -origin.z / ray.z;
+        glm::vec3 pt = (origin + t * ray);
+
+        return contains_pt(pt);
+    }
+
     bool contains_pt(const glm::vec3& pt) const
     {
         // first rotate pt by the origin of this bbox by -yaw

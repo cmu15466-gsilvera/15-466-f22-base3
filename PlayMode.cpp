@@ -9,6 +9,7 @@
 #include "gl_errors.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
 
 #include <algorithm>
@@ -76,12 +77,19 @@ PlayMode::PlayMode()
     auto rng = std::default_random_engine {};
     std::shuffle(std::begin(vehicle_names), std::end(vehicle_names), rng);
 
+    // make is so the target is always the previous guy
+    FourWheeledVehicle* lastFWV = nullptr;
     for (const std::string& name : vehicle_names) {
         FourWheeledVehicle* FWV = new FourWheeledVehicle(name);
         FWV->initialize_from_scene(scene);
+        if (lastFWV != nullptr) {
+            FWV->target = lastFWV;
+        }
         vehicle_map.push_back(FWV);
+        lastFWV = FWV;
         // the first vehicle will be the player
     }
+    vehicle_map[0]->target = lastFWV;
 
     target = vehicle_map[0];
     std::cout << "Determined target to be \"" << target->name << "\"" << std::endl;
@@ -93,7 +101,7 @@ PlayMode::PlayMode()
 
     // start music loop playing:
     //  (note: position will be over-ridden in update())
-    const float volume = 0.5f;
+    const float volume = 1.f;
     const float radius = 1.f;
     honk_loop = Sound::loop_3D(*honk_sample, volume, target->pos, radius);
 }
@@ -148,7 +156,7 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             return true;
         }
     } else if (evt.type == SDL_MOUSEBUTTONDOWN) {
-        check_if_clicked(glm::vec2(evt.motion.x, evt.motion.y));
+        check_if_clicked(glm::vec2(evt.motion.x / float(window_size.x), evt.motion.y / float(window_size.y)));
         return true;
     } else if (evt.type == SDL_MOUSEMOTION) {
         if (SDL_GetRelativeMouseMode() == SDL_TRUE) {
@@ -162,9 +170,31 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
     return false;
 }
 
-void PlayMode::check_if_clicked(const glm::vec2& mouse)
+void PlayMode::check_if_clicked(const glm::vec2& mouse_rel)
 {
-    std::cout << "(" << mouse.x << " x " << mouse.y << ")" << std::endl;
+    glm::vec2 m = mouse_rel - 0.5f; // origin is (0.5, 0.5)
+    m = glm::vec2(m.x, -m.y); // center is (0, 0), top right is (0.5, 0.5), bottom left is (-0.5, -0.5)
+    // std::cout << "(" << m.x << " x " << m.y << ")" << std::endl;
+    // create vector from camera to point
+    glm::vec3 ray = glm::vec3(0, 0, 0);
+    {
+        // update listener to camera position:
+        glm::mat4x3 frame = camera->transform->make_local_to_parent();
+        glm::vec3 right = frame[0];
+        glm::vec3 up = frame[1];
+        glm::vec3 forward = -frame[2];
+        const float fovY = camera->fovy;
+        const float fovX = camera->fovy * camera->aspect;
+        const float dX = fovX * m.x;
+        const float dY = fovY * m.y;
+        ray = forward + right * dX + up * dY;
+    }
+
+    // process ray-box intersection
+
+    for (FourWheeledVehicle* FWV : vehicle_map) {
+        FWV->bounds.collided = FWV->bounds.intersects(camera->transform->position, ray);
+    }
 }
 
 void PlayMode::update(float elapsed)
@@ -182,12 +212,11 @@ void PlayMode::update(float elapsed)
     // update all the vehicles
     for (FourWheeledVehicle* FWV : vehicle_map) {
         if (!FWV->bIsPlayer) {
-            FWV->target = target;
             FWV->think(elapsed, vehicle_map); // determine target & controls
         }
         FWV->update(elapsed);
         // check collisions
-        FWV->bounds.collided = false;
+        // FWV->bounds.collided = false; // no need bc ray-box intersection
         // glm::vec3 heading = FWV->get_heading();
         for (FourWheeledVehicle* otherFWV : vehicle_map) {
             bool was_collision = (FWV->bounds.collides_with(otherFWV->bounds) || otherFWV->bounds.collides_with(FWV->bounds));
