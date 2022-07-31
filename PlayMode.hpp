@@ -30,7 +30,7 @@ struct PlayMode : Mode {
     void check_if_clicked(const glm::vec2& mouse);
 
     // music coming from the sound cue
-    std::shared_ptr<Sound::PlayingSample> honk_sound;
+    std::shared_ptr<Sound::PlayingSample> sound;
 
     // local copy of the game scene (so code can change it during gameplay):
     Scene scene;
@@ -40,9 +40,6 @@ struct PlayMode : Mode {
     // all the vehicles in the scene
     std::vector<FourWheeledVehicle*> vehicle_map;
     FourWheeledVehicle* target = nullptr;
-
-    float time = 0.f;
-    float next_sound_play = 0.f;
 
     // camera:
     glm::vec2 move = glm::vec2(0, 0);

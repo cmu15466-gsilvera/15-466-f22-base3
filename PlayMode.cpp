@@ -48,6 +48,10 @@ Load<Sound::Sample> honk_sample(LoadTagDefault, []() -> Sound::Sample const* {
     return new Sound::Sample(data_path("honk.opus"));
 });
 
+Load<Sound::Sample> alien_sample(LoadTagDefault, []() -> Sound::Sample const* {
+    return new Sound::Sample(data_path("alien.opus"));
+});
+
 PlayMode::PlayMode()
     : scene(*load_scene)
 {
@@ -73,8 +77,8 @@ PlayMode::PlayMode()
         "truckFlat",
         "van"
     };
-
-    auto rng = std::default_random_engine {};
+    std::random_device rd;
+    std::mt19937 rng(rd());
     std::shuffle(std::begin(vehicle_names), std::end(vehicle_names), rng);
 
     // make is so the target is always the previous guy
@@ -86,7 +90,7 @@ PlayMode::PlayMode()
     }
 
     target = vehicle_map[0];
-    std::cout << "Determined target to be \"" << target->name << "\"" << std::endl;
+    // std::cout << "Determined target to be \"" << target->name << "\"" << std::endl;
 
     // get pointer to camera for convenience:
     if (scene.cameras.size() != 1)
@@ -204,17 +208,6 @@ void PlayMode::update(float elapsed)
     //     win = true;
     // }
 
-    time += elapsed;
-    // move sound to play at the target every ~3s
-    if (time > next_sound_play) {
-        honk_sound.reset();
-        const float volume = 1.f;
-        const float radius = 0.1f;
-        honk_sound = Sound::play_3D(*honk_sample, volume, target->pos, radius);
-        honk_sound->set_position(target->pos, 1.0f / 60.0f);
-        next_sound_play += 3;
-    }
-
     // update all the vehicles
     for (FourWheeledVehicle* FWV : vehicle_map) {
         if (!FWV->bIsPlayer) {
@@ -231,12 +224,14 @@ void PlayMode::update(float elapsed)
 
                 glm::vec3 dir = FWV->pos - otherFWV->pos;
                 FWV->collision_force = 0.5f * dir / elapsed;
-                // check if got bumped
-                // if (glm::dot(dir, heading) > 0) {
-                //     FWV->health--;
-                //     if (FWV->health == 0)
-                //         FWV->die();
-                // }
+                const float volume = 1.f;
+                const float radius = 0.1f;
+                if (FWV == target) {
+                    sound = Sound::play_3D(*honk_sample, volume, target->pos, radius);
+                } else {
+                    sound = Sound::play_3D(*alien_sample, volume, target->pos, radius);
+                }
+                sound->set_position(FWV->pos, 1.0f / 60.0f);
                 break;
             }
         }
