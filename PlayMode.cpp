@@ -183,7 +183,6 @@ void PlayMode::check_if_clicked(const glm::vec2& mouse_rel)
     }
 
     // process ray-box intersection
-
     for (FourWheeledVehicle* FWV : vehicle_map) {
         FWV->bounds.collided = FWV->bounds.intersects(camera->transform->position, ray);
         if (FWV->bounds.collided) {
