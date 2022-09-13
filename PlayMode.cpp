@@ -172,14 +172,14 @@ void PlayMode::check_if_clicked(const glm::vec2& mouse_rel)
     {
         // update listener to camera position:
         glm::mat4x3 frame = camera->transform->make_local_to_parent();
-        glm::vec3 right = frame[0];
-        glm::vec3 up = frame[1];
-        glm::vec3 forward = -frame[2];
+        glm::vec3 cam_right = frame[0];
+        glm::vec3 cam_up = frame[1];
+        glm::vec3 cam_forward = -frame[2];
         const float fovY = camera->fovy;
         const float fovX = camera->fovy * camera->aspect;
         const float dX = fovX * m.x;
         const float dY = fovY * m.y;
-        ray = forward + right * dX + up * dY;
+        ray = cam_forward + cam_right * dX + cam_up * dY;
     }
 
     // process ray-box intersection
@@ -272,9 +272,9 @@ void PlayMode::update(float elapsed)
 
     { // update listener to camera position:
         glm::mat4x3 frame = camera->transform->make_local_to_parent();
-        glm::vec3 right = frame[0];
-        glm::vec3 at = frame[3];
-        Sound::listener.set_position_right(at, right, 1.0f / 60.0f);
+        glm::vec3 cam_right = frame[0];
+        glm::vec3 cam_at = frame[3];
+        Sound::listener.set_position_right(cam_at, cam_right, 1.0f / 60.0f);
     }
 
     // reset button press counters:
