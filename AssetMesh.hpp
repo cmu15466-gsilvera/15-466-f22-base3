@@ -38,13 +38,14 @@ struct PhysicalAssetMesh : AssetMesh {
     glm::vec3 rot, rotvel, rotaccel;
 
     glm::vec3 collision_force;
+    constexpr static glm::vec3 gravity = glm::vec3(0, 0, -9.8);
 
     PhysicalAssetMesh(const std::string& nameIn)
         : AssetMesh(nameIn)
     {
         pos = glm::vec3(0, 0, 0);
         vel = glm::vec3(0, 0, 0);
-        accel = glm::vec3(0, 0, -9.8); // gravity
+        accel = gravity;
         rot = glm::vec3(0, 0, 0);
         rotvel = glm::vec3(0, 0, 0);
         rotaccel = glm::vec3(0, 0, 0);
@@ -75,21 +76,6 @@ struct PhysicalAssetMesh : AssetMesh {
 
         // update bounds based off position and rotation
         bounds.update(pos, rot.z); // only rotate with yaw
-    }
-};
-
-struct Missile : PhysicalAssetMesh {
-
-    Scene::Transform* all;
-
-    void initialize_from_scene(Scene& scene)
-    {
-        assert(scene.transforms.size() > 0);
-
-        std::string suffix = find_suffix_in_scene(name, "rocket", scene);
-
-        pos = all->position;
-        rot = glm::eulerAngles(all->rotation);
     }
 };
 
@@ -152,12 +138,6 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
 
         bounds = BBox(mesh->min, mesh->max);
 
-        // debug to make sure all the wheels are working
-        // wheel_FL->position += glm::vec3(1, 0, 0);
-        // wheel_BL->position += glm::vec3(1, 0, 0);
-        // wheel_FR->position += glm::vec3(-1, 0, 0);
-        // wheel_BR->position += glm::vec3(-1, 0, 0);
-
         pos = all->position;
         rot = glm::eulerAngles(all->rotation);
     }
@@ -175,6 +155,7 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
             return;
         }
 
+        // randomly choose another target
         while ((target == nullptr || target == this || !target->enabled)) {
             target = others[std::rand() % others.size()];
         }
@@ -209,31 +190,32 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
         if (throttle > 0) {
             chassis->rotation = glm::angleAxis(glm::radians(std::sin(woggle * 2 * float(M_PI))), glm::vec3(0.0f, 1.0f, 0.0f));
         }
-        wheel_FL->rotation = glm::angleAxis(steer, glm::vec3(0, 0, 1));
-        wheel_FR->rotation = glm::angleAxis(float(M_PI + steer), glm::vec3(0, 0, 1));
+        // create 3D acceleration vector
+        auto heading = get_heading();
+        accel = heading * (throttle_force * throttle - brake_force * brake) + glm::vec3(0, 0, accel.z);
 
-        // wheel rotation (stretch)
-        // wheel_FL->rotation *= glm::angleAxis(-0.1f, glm::vec3(1.0f, 0.0f, 0.0f));
-        // wheel_FR->rotation *= glm::angleAxis(-0.1f, glm::vec3(1.0f, 0.0f, 0.0f));
-        // wheel_BL->rotation *= glm::angleAxis(-0.1f, glm::vec3(1.0f, 0.0f, 0.0f));
-        // wheel_BR->rotation *= glm::angleAxis(-0.1f, glm::vec3(1.0f, 0.0f, 0.0f));
+        // compute forward speed
+        glm::vec3 vel_2D = glm::vec3(vel.x, vel.y, 0);
+        int velocity_sign = glm::sign(glm::dot(vel_2D, heading));
+        float signed_speed = velocity_sign * glm::length(vel_2D);
+
+        wheel_rot -= dt * signed_speed;
+        wheel_FL->rotation = glm::angleAxis(steer, glm::vec3(0, 0, 1)) * glm::angleAxis(wheel_rot, glm::vec3(1, 0, 0));
+        wheel_FR->rotation = glm::angleAxis(steer, glm::vec3(0, 0, 1)) * glm::angleAxis(wheel_rot, glm::vec3(1, 0, 0));
+        // these (rear) wheels are not on a z-axis rotation
+        wheel_BL->rotation = glm::angleAxis(wheel_rot, glm::vec3(1, 0, 0));
+        wheel_BR->rotation = glm::angleAxis(wheel_rot, glm::vec3(1, 0, 0));
 
         if (pos.z <= 0) { // ground update
             // inspiration for this physics update was taken from this code:
             // https://github.com/winstxnhdw/KinematicBicycleModel
 
-            // create 3D acceleration vector
-            auto heading = get_heading();
-            accel = heading * (throttle_force * throttle - brake_force * brake) + glm::vec3(0, 0, accel.z);
-
-            // compute forward speed
-            glm::vec3 vel_2D = glm::vec3(vel.x, vel.y, 0);
-            int velocity_sign = glm::sign(glm::dot(vel_2D, heading));
-            float signed_speed = velocity_sign * glm::length(vel_2D);
-
             // compute friction
             float friction = signed_speed * (c_r + c_a * signed_speed);
             accel -= vel_2D * friction; // scale forward velocity by friction
+            const float MAX_ACCEL = 100;
+            accel.x = std::min(std::max(accel.x, -MAX_ACCEL), MAX_ACCEL);
+            accel.y = std::min(std::max(accel.y, -MAX_ACCEL), MAX_ACCEL);
 
             // ensure velocity in x/y is linked to heading
             vel.x = signed_speed * heading.x;
@@ -242,7 +224,7 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
             // compute angular velocity (only along yaw)
             rotvel = (signed_speed * glm::tan(steer_force * steer) / wheel_diameter_m) * glm::vec3(0, 0, 1);
         } else { // in the air
-            accel = glm::vec3(0, 0, -9.8);
+            accel = gravity;
         }
 
         // finally perform the physics update
@@ -266,9 +248,11 @@ struct FourWheeledVehicle : PhysicalAssetMesh {
     // constants
     float wheel_diameter_m = 1.0f;
     float c_r = 0.02f; // coefficient of resistance
-    float c_a = 0.25f; // drag coefficient
+    float c_a = 0.025f; // drag coefficient
     float woggle = 0;
+    float wheel_rot = 0;
 
+    float timeLastHit = -1e5; // when was the player last hit? (init to negative inf)
     float health = 2; // maximum number of bumps
 
     // control scheme inputs

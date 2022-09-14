@@ -57,25 +57,24 @@ PlayMode::PlayMode()
 {
 
     std::vector<std::string> vehicle_names = {
-        "ambulance",
-        "delivery",
-        "deliveryFlat",
-        "firetruck",
-        "garbageTruck",
-        "hatchbackSports",
-        "police",
-        "race",
-        "sedan",
-        "sedanSports",
-        "suv",
-        "suvLuxury",
-        "taxi",
-        "tractor",
-        "tractorPolice",
-        "tractorShovel",
-        "truck",
-        "truckFlat",
-        "van"
+        "car",
+        "car.001",
+        "car.002",
+        "car.003",
+        "car.004",
+        "car.005",
+        "car.006",
+        "car.007",
+        "car.008",
+        "car.009",
+        "car.010",
+        "car.011",
+        "car.012",
+        "car.013",
+        "car.014",
+        "car.015",
+        "car.016",
+        /// TODO: add cars in code, not model
     };
     std::random_device rd;
     std::mt19937 rng(rd());
