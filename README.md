@@ -1,4 +1,4 @@
-# Bow Pew Bow
+# Pew Bow Bow
 
 Author: Gustavo Silvera
 
