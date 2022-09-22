@@ -44,12 +44,12 @@ Load<Scene> load_scene(LoadTagDefault, []() -> Scene const* {
     });
 });
 
-Load<Sound::Sample> honk_sample(LoadTagDefault, []() -> Sound::Sample const* {
-    return new Sound::Sample(data_path("honk.opus"));
+Load<Sound::Sample> bow_sample(LoadTagDefault, []() -> Sound::Sample const* {
+    return new Sound::Sample(data_path("pew.opus"));
 });
 
-Load<Sound::Sample> alien_sample(LoadTagDefault, []() -> Sound::Sample const* {
-    return new Sound::Sample(data_path("alien.opus"));
+Load<Sound::Sample> pew_sample(LoadTagDefault, []() -> Sound::Sample const* {
+    return new Sound::Sample(data_path("bow.opus"));
 });
 
 PlayMode::PlayMode()
@@ -108,27 +108,28 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         if (evt.key.keysym.sym == SDLK_ESCAPE) {
             SDL_SetRelativeMouseMode(SDL_FALSE);
             return true;
-        } else if (evt.key.keysym.sym == SDLK_a) {
+        }
+        if (evt.key.keysym.sym == SDLK_a) {
             left.downs += 1;
             left.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
+        }
+        if (evt.key.keysym.sym == SDLK_d) {
             right.downs += 1;
             right.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
+        }
+        if (evt.key.keysym.sym == SDLK_w) {
             up.downs += 1;
             up.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
+        }
+        if (evt.key.keysym.sym == SDLK_s) {
             down.downs += 1;
             down.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_SPACE) {
+        }
+        if (evt.key.keysym.sym == SDLK_SPACE) {
             jump.downs += 1;
             jump.pressed = true;
-            return true;
         }
+        return true;
     } else if (evt.type == SDL_KEYUP) {
         if (evt.key.keysym.sym == SDLK_a) {
             left.pressed = false;
@@ -222,12 +223,12 @@ void PlayMode::update(float elapsed)
 
                 glm::vec3 dir = FWV->pos - otherFWV->pos;
                 FWV->collision_force = 0.5f * dir / elapsed;
-                const float volume = 1.f;
+                const float volume = 10.f;
                 const float radius = 0.1f;
                 if (FWV == target) {
-                    sound = Sound::play_3D(*honk_sample, volume, target->pos, radius);
+                    sound = Sound::play_3D(*bow_sample, volume, target->pos, radius);
                 } else {
-                    sound = Sound::play_3D(*alien_sample, volume, target->pos, radius);
+                    sound = Sound::play_3D(*pew_sample, volume, target->pos, radius);
                 }
                 sound->set_position(FWV->pos, 1.0f / 60.0f);
                 break;
@@ -346,7 +347,7 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
     }
 
     // draw lines in 3D space
-    if (true) {
+    if (false) {
         glDisable(GL_DEPTH_TEST);
         glm::mat4 world_to_clip = camera->make_projection() * glm::mat4(camera->transform->make_world_to_local());
 
