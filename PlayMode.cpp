@@ -255,17 +255,20 @@ void PlayMode::update(float elapsed)
     {
         // std::cout << Player->steer << std::endl;
 
+        glm::vec3 diff_offset = glm::vec3(0, 0, 0);
         if (up.pressed) {
-            camera_offset = glm::vec3(0, 1, 0);
-        } else if (down.pressed) {
-            camera_offset = glm::vec3(0, -1, 0);
-        } else if (right.pressed) {
-            camera_offset = glm::vec3(1, 0, 0);
-        } else if (left.pressed) {
-            camera_offset = glm::vec3(-1, 0, 0);
-        } else {
-            camera_offset = glm::vec3(0, 0, 0);
+            diff_offset += glm::vec3(0, 1, 0);
         }
+        if (down.pressed) {
+            diff_offset += glm::vec3(0, -1, 0);
+        }
+        if (right.pressed) {
+            diff_offset += glm::vec3(1, 0, 0);
+        }
+        if (left.pressed) {
+            diff_offset += glm::vec3(-1, 0, 0);
+        }
+        camera_offset = diff_offset;
         /// TODO: rotate camera?
         camera->transform->position += 0.1f * camera_offset;
     }
